@@ -5,6 +5,8 @@
 % Contact: minegishis@brandeis.edu
 % Date: Apr 24, 2024
 
+
+%%%%%%%%%%%%% Extract data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %table from each query 
 Query1_data = readtable('MapMySpikes_data_PUBLIC final.xlsx', 'Sheet', 'Query1');
 Query2_data = readtable('MapMySpikes_data_PUBLIC final.xlsx', 'Sheet', 'Query2');
@@ -32,6 +34,7 @@ Y_VispViewerTType2 = table2array(Y_VispViewerTType2);
 %first find input variables common in both VISp and CTKE sheets
 VISpVars = VISp_Viewer.Properties.VariableNames; %column names of VISp
 CTKEVars = CTKE_M1.Properties.VariableNames;
+
 commonVars = intersect(VISpVars, CTKEVars); %column names common in both VISP and CTKE
 
 %remove cell ID, sex, vispviewerTtype from common input variables
@@ -47,38 +50,36 @@ X_CTKE = extract_columns(CTKE_M1, commonVars);
 X_VISp = table2array(X_VISp); %convert table to array format so it can be processed
 X_CTKE = table2array(X_CTKE);
 
-%,'ClassNames',{'APAmplitude_mV_', 'APThreshold_mV_','APWidth_ms_', 'Age_postnatalDays_', 'InputResistance_M__', 'ReboundAPs_number_', 'RestingMembranePotential_mV_','SagRatio'});
 
-%%%%%%%%%%%%%%% fit model for VISp dataset - k nearest neighboR %%%%%%
-rng(10); %for reproducibility
-Mdl_VISp = fitcknn(X_VISp, Y_VispViewerTType1,'NumNeighbors',4,'Standardize',1) %construct KNN model
+%%%%%%%%%%%%%%%%% X_VISp %%%%%%%%%%%%%%%%
+% Perform PCA
+[coeff, score, ~, ~, explained] = pca(X_VISp);
 
-%%%%  check quality of model %%%%%
-rloss_VISp = resubLoss(Mdl_VISp) %percent of training data that the classifier predicts incorrectly. resubstitution loss.
-CVMdl_VISp = crossval(Mdl_VISp); %Construct a cross-validated classifier from the model.
-kloss_VISp = kfoldLoss(CVMdl_VISp) %cross-validation loss. average loss of each cross-validation model when predicting on data that is not used for training.
+% Choose the number of principal components to retain
+num_components = 2; % Choose based on explained variance or other criteria
 
-%type: Mdl_VISp.Prior to get prior probabilities of each class
-
-% predict the classification of an average spike, X_VISp
-avgX_VISp = mean(X_VISp)
-
-avgX_VISp_class = predict(Mdl_VISp,avgX_VISp)
+% Project data onto the selected principal components
+X_pca = score(:, 1:num_components);
 
 
-%%%%%%%%%%% FIT MODEL FOR CTKE ON Y_CTKETType
-%fit model for VISp dataset - k nearest neighbor
+% Split data into training and testing sets (70% training, 30% testing)
+rng(42); % Set random seed for reproducibility
+cv = cvpartition(size(X_pca, 1), 'Holdout', 0.3);
+X_train = X_pca(training(cv), :);
+Y_train = Y_VispViewerTType1(training(cv));
+X_test = X_pca(test(cv), :);
+Y_test = Y_VispViewerTType1(test(cv));
 
-Mdl_CTKE = fitcknn(X_CTKE, Y_CTKETType,'NumNeighbors',4,'Standardize',1) %construct KNN model
+% Train kNN classifier
+k = 5; % Number of neighbors
+mdl_VISp = fitcknn(X_train, Y_train, 'NumNeighbors', k)
 
-%%%%  check quality of model %%%%%
-rloss_CTKE = resubLoss(Mdl_CTKE) %percent of training data that the classifier predicts incorrectly. resubstitution loss.
-CVMdl_CTKE = crossval(Mdl_CTKE); %Construct a cross-validated classifier from the model.
-kloss_CTKE = kfoldLoss(CVMdl_CTKE) %cross-validation loss. average loss of each cross-validation model when predicting on data that is not used for training.
+% Predict class labels for testing set
+Y_pred = predict(mdl_VISp, X_test)
 
-%type: Mdl_VISp.Prior to get prior probabilities of each class
+% Evaluate performance
+accuracy = sum(string(Y_pred) == string(Y_test)) / numel(Y_test);
+conf_matrix = confusionmat(Y_test, Y_pred);
 
-% predict the classification of an average spike, X_VISp
-avgX_CTKE = mean(X_CTKE)
-
-avgX_CTKE_class = predict(Mdl_CTKE,avgX_CTKE)
+% Display results
+fprintf('Accuracy: %.2f%%\n', accuracy * 100);

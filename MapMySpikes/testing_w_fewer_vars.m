@@ -48,9 +48,9 @@ X_CTKE = table2array(X_CTKE);
 
 %,'ClassNames',{'APAmplitude_mV_', 'APThreshold_mV_','APWidth_ms_', 'Age_postnatalDays_', 'InputResistance_M__', 'ReboundAPs_number_', 'RestingMembranePotential_mV_','SagRatio'});
 
-%fit model for VISp dataset - k nearest neighbor
+%%%%%%%%%%%%%%% fit model for VISp dataset - k nearest neighboR %%%%%%
 rng(10); %for reproducibility
-Mdl_VISp = fitcknn(X_VISp, Y_VispViewerTType1,'NumNeighbors',2,'Standardize',1) %construct KNN model
+Mdl_VISp = fitcknn(X_VISp, Y_VispViewerTType1,'NumNeighbors',4,'Standardize',1) %construct KNN model
 
 %%%%  check quality of model %%%%%
 rloss_VISp = resubLoss(Mdl_VISp) %percent of training data that the classifier predicts incorrectly. resubstitution loss.
@@ -58,9 +58,27 @@ CVMdl_VISp = crossval(Mdl_VISp); %Construct a cross-validated classifier from th
 kloss_VISp = kfoldLoss(CVMdl_VISp) %cross-validation loss. average loss of each cross-validation model when predicting on data that is not used for training.
 
 %type: Mdl_VISp.Prior to get prior probabilities of each class
-Mdl_VISp.Prior
 
 % predict the classification of an average spike, X_VISp
 avgX_VISp = mean(X_VISp)
 
 avgX_VISp_class = predict(Mdl_VISp,avgX_VISp)
+
+
+%%%%%%%%%%% FIT MODEL FOR CTKE ON Y_CTKETType
+%fit model for VISp dataset - k nearest neighbor
+
+Mdl_CTKE = fitcknn(X_CTKE, Y_CTKETType,'NumNeighbors',4,'Standardize',1) %construct KNN model
+
+%%%%  check quality of model %%%%%
+rloss_CTKE = resubLoss(Mdl_CTKE) %percent of training data that the classifier predicts incorrectly. resubstitution loss.
+CVMdl_CTKE = crossval(Mdl_CTKE); %Construct a cross-validated classifier from the model.
+kloss_CTKE = kfoldLoss(CVMdl_CTKE) %cross-validation loss. average loss of each cross-validation model when predicting on data that is not used for training.
+
+%type: Mdl_VISp.Prior to get prior probabilities of each class
+
+% predict the classification of an average spike, X_VISp
+avgX_CTKE = mean(X_CTKE)
+
+avgX_CTKE_class = predict(Mdl_CTKE,avgX_CTKE)
+
